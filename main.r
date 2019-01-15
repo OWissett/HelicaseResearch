@@ -8,12 +8,13 @@ library("ggplot2")
 #################
 
 ##List of CSV data frames
-folder <- readline("Where is the data from the spectrophotometer?")
+##List of CSV data frames
+folder <- readline("Where is the data from the spectrophotometer?  ")
 dat <- list() 
 
 ##List of files in current directory (ensure directory is correct)
-fils <- list.files(folder)
-fils
+fils <- list.files(folder, full.names = TRUE)
+
 ##Loads CSV files
 for(i in 1:length(fils)){
   ##Reads the CSV file
