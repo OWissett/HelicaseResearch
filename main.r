@@ -8,11 +8,12 @@ library("ggplot2")
 #################
 
 ##List of CSV data frames
+folder <- readline("Where is the data from the spectrophotometer?")
 dat <- list() 
 
 ##List of files in current directory (ensure directory is correct)
-fils <- list.files()
-
+fils <- list.files(folder)
+fils
 ##Loads CSV files
 for(i in 1:length(fils)){
   ##Reads the CSV file
@@ -77,3 +78,4 @@ my.graph <- function(){
   }
 
 }
+
