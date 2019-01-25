@@ -8,21 +8,21 @@ library("ggplot2")
 #################
 
 ##List of CSV data frames
-##List of CSV data frames
-folder <- readline("Where is the data from the spectrophotometer?  ")
-dat <- list() 
+#folder <- readline("Where is the data from the spectrophotometer?  ")
+in_dat <- list() 
+dat <- list()
 
 ##List of files in current directory (ensure directory is correct)
-fils <- list.files(folder, full.names = TRUE)
+#fils <- list.files(folder, full.names = TRUE)
+files <- list.files(pattern = "\\.csv$")
 
 ##Loads CSV files
-for(i in 1:length(fils)){
-  ##Reads the CSV file
-  dat[[i]] <- read.csv(fils[[i]], head=T, sep=",")
-  ##Removes whitespace between rows, this decreases object size.
-  dat[[i]] <- dat[[i]][complete.cases(dat[[i]]),]
-  
-}
+in_dat <- lapply(files, read.csv)
+dat <- lapply(in_dat, function(x) x[complete.cases(x),])
+
+##Variables are set to NULL once they are no longer required.
+in_dat <- NULL
+files <- NULL
 
 
 #############
@@ -31,7 +31,7 @@ for(i in 1:length(fils)){
 
 my.model <- function(){
   models <- list()
-  for(i in 1:length(dat)){
+  for (i in 1:length(dat)) {
     models[[i]] <- glm(Intensity~Time, data = dat[[i]])
   }
   return(models)
@@ -44,8 +44,8 @@ my.LowestAICModel <- function(model){
   AICs <- data.frame(AIC_Val, index_Val) ##df of AIC and index of model
   
   ##Creates a data frame of AIC values with their respective index value
-  for(i in 1:length(model)){
-    AICs <- rbind(AICs, data.frame(AIC_Val=AIC(model[[i]]), index_Val=i))
+  for (i in 1:length(model)) {
+    AICs <- rbind(AICs, data.frame(AIC_Val = AIC(model[[i]]), index_Val = i))
   }
   
   ##Finds lowest AIC value
@@ -54,9 +54,10 @@ my.LowestAICModel <- function(model){
   ##Defines variable ret
   ret <- NULL
   
-  ##Compares the AIC_Val to the lowest AIC, if the same then ret = index value of the model
-  for(i in 1:length(model)){
-    ret[AICs$AIC_Val==lowestAIC & AICs$index_Val==i] <- i
+  ##Compares the AIC_Val to the lowest AIC,
+  ##if the same then ret = index value of the model
+  for (i in 1:length(model)) {
+    ret[AICs$AIC_Val == lowestAIC & AICs$index_Val == i] <- i
   }
   
   ##For some reason complete.cases must be used as the second for loop creates a vector contain NA's this is then confuses the computer
@@ -66,17 +67,39 @@ my.LowestAICModel <- function(model){
 }
 
 my.graph <- function(){
-  
-  mods <- my.model()
-  for(i in 1:length(dat)){
-    ggplot(dat[[i]], aes(Time, Intensity, colour=Intensity)) + 
-      geom_point(alpha=0.2, show.legend = F) +
-      xlab("Time (min)") +
-      ylab("Intensity (A.U)") +
-      theme_classic() +
-      xlim(0, 16) +
-      ylim(25, 250) 
-  }
-
+  NormDat <- my.NormDat()
+  GGP <- list()
+    for (i in 1:length(NormDat[[1]])) {
+      GGP[[i]] <- ggplot(NormDat[[1]][[i]], aes(Time, Intensity, colour = Intensity)) +
+        geom_point(alpha = 0.2, show.legend = F) +
+        xlab("Time (min)") +
+        ylab("Intensity (A.U)") +
+        theme_classic() +
+        ylim(0,ceiling(NormDat[[2]] * 1.2))
+    }
+  do.call(grid.arrange, GGP)
+  GGP <- NULL
 }
 
+my.NormDat <- function(){
+
+  returnVal <- c()
+  listDF <- list()
+  normaliseInt <- list()
+  ndat <- list()
+
+  ndat <- lapply(dat, '[', c('Intensity'))
+  yMins <- lapply(ndat, min)
+
+  for (i in 1:length(yMins)) {
+    normaliseInt[[i]] <- lapply(ndat[[i]], function(x) x/yMins[[i]])
+    listDF[[i]] <- data.frame("Time" = dat[[i]]['Time'], 
+                              "Intensity" = normaliseInt[[i]])
+  }
+  
+  yMax <- max(sapply(unlist(normaliseInt), max))
+  returnVal[[1]] <- listDF
+  returnVal[[2]] <- yMax
+  ndat <- NULL
+  return(returnVal)
+}
