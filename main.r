@@ -31,8 +31,9 @@ files <- NULL
 
 my.model <- function(){
   models <- list()
-  for (i in 1:length(dat)) {
-    models[[i]] <- glm(Intensity~Time, data = dat[[i]])
+  normDat <- my.NormDat()
+  for (i in 1:length(normDat[[1]])) {
+    models[[i]] <- glm(Intensity~Time, data = normDat[[1]][[i]])
   }
   return(models)
 }
@@ -83,23 +84,41 @@ my.graph <- function(){
 
 my.NormDat <- function(){
 
+  ##Defines local vairables
   returnVal <- c()
   listDF <- list()
   normaliseInt <- list()
   ndat <- list()
 
+  ##Creates a list of vectors containing the intensities
   ndat <- lapply(dat, '[', c('Intensity'))
+  
+  ##Creates a list of minimum alues from each vector in ndat
   yMins <- lapply(ndat, min)
 
+  ##Loop creates new data frame with normalised intensities against time
   for (i in 1:length(yMins)) {
     normaliseInt[[i]] <- lapply(ndat[[i]], function(x) x/yMins[[i]])
     listDF[[i]] <- data.frame("Time" = dat[[i]]['Time'], 
                               "Intensity" = normaliseInt[[i]])
   }
   
+  ##Nulls ndat once no longer needed (this may be redundant...)
+  ##May possibly decrease memory used...
+  ndat <- NULL
+  
+  ##Finds max light intenisity out of all values in all vectors, returns an int
   yMax <- max(sapply(unlist(normaliseInt), max))
+  
+  ##Assigns the values that arer returned by the funtion to the retrun array
   returnVal[[1]] <- listDF
   returnVal[[2]] <- yMax
-  ndat <- NULL
+  
   return(returnVal)
+}
+
+my.Average <- function(av){
+  
+  
+  return()
 }
