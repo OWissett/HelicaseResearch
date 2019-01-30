@@ -117,7 +117,10 @@ my.NormDat <- function(){
   return(returnVal)
 }
 
-my.Average <- function(av){
+my.Average <- function(){
+  
+  normDat <- my.NormDat()
+  normDat[[2]] <- NULL
   
   
   return()
