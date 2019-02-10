@@ -2,7 +2,8 @@
 ##Libraries##
 #############
 library("ggplot2")
-
+library("gridExtra")
+library("itsmr")
 #################
 ##  Load Data  ##
 #################
@@ -29,73 +30,20 @@ files <- NULL
 ##FUNCTIONS##
 #############
 
-my.model <- function(){
-  models <- list()
-  normDat <- my.NormDat()
-  for (i in 1:length(normDat[[1]])) {
-    models[[i]] <- glm(Intensity~Time, data = normDat[[1]][[i]])
-  }
-  return(models)
-}
-
-my.LowestAICModel <- function(model){
-  AIC_Val <- c()
-  index_Val <- c()
-  
-  AICs <- data.frame(AIC_Val, index_Val) ##df of AIC and index of model
-  
-  ##Creates a data frame of AIC values with their respective index value
-  for (i in 1:length(model)) {
-    AICs <- rbind(AICs, data.frame(AIC_Val = AIC(model[[i]]), index_Val = i))
-  }
-  
-  ##Finds lowest AIC value
-  lowestAIC <- min(AICs$AIC_Val)
-  
-  ##Defines variable ret
-  ret <- NULL
-  
-  ##Compares the AIC_Val to the lowest AIC,
-  ##if the same then ret = index value of the model
-  for (i in 1:length(model)) {
-    ret[AICs$AIC_Val == lowestAIC & AICs$index_Val == i] <- i
-  }
-  
-  ##For some reason complete.cases must be used as the second for loop creates a vector contain NA's this is then confuses the computer
-  ##if the NA's are not removed.
-  ret <- ret[complete.cases(ret)]
-  return(paste("Model ", ret, " has the lowest AIC"))
-}
-
-my.graph <- function(){
-  NormDat <- my.NormDat()
-  GGP <- list()
-    for (i in 1:length(NormDat[[1]])) {
-      GGP[[i]] <- ggplot(NormDat[[1]][[i]], aes(Time, Intensity, colour = Intensity)) +
-        geom_point(alpha = 0.2, show.legend = F) +
-        xlab("Time (min)") +
-        ylab("Intensity (A.U)") +
-        theme_classic() +
-        ylim(0,ceiling(NormDat[[2]] * 1.2))
-    }
-  do.call(grid.arrange, GGP)
-  GGP <- NULL
-}
-
 my.NormDat <- function(){
-
+  
   ##Defines local vairables
   returnVal <- c()
   listDF <- list()
   normaliseInt <- list()
   ndat <- list()
-
+  
   ##Creates a list of vectors containing the intensities
   ndat <- lapply(dat, '[', c('Intensity'))
   
   ##Creates a list of minimum alues from each vector in ndat
   yMins <- lapply(ndat, min)
-
+  
   ##Loop creates new data frame with normalised intensities against time
   for (i in 1:length(yMins)) {
     normaliseInt[[i]] <- lapply(ndat[[i]], function(x) x/yMins[[i]])
@@ -117,11 +65,78 @@ my.NormDat <- function(){
   return(returnVal)
 }
 
+#########
+# my.model <- function(){
+#   models <- list()
+#   normDat <- my.NormDat()
+#   for (i in 1:length(normDat[[1]])) {
+#     models[[i]] <- glm(Intensity~Time, data = normDat[[1]][[i]])
+#   }
+#   return(models)
+# }
+
+# my.LowestAICModel <- function(model){
+#   AIC_Val <- c()
+#   index_Val <- c()
+#   
+#   AICs <- data.frame(AIC_Val, index_Val) ##df of AIC and index of model
+#   
+#   ##Creates a data frame of AIC values with their respective index value
+#   for (i in 1:length(model)) {
+#     AICs <- rbind(AICs, data.frame(AIC_Val = AIC(model[[i]]), index_Val = i))
+#   }
+#   
+#   ##Finds lowest AIC value
+#   lowestAIC <- min(AICs$AIC_Val)
+#   
+#   ##Defines variable ret
+#   ret <- NULL
+#   
+#   ##Compares the AIC_Val to the lowest AIC,
+#   ##if the same then ret = index value of the model
+#   for (i in 1:length(model)) {
+#     ret[AICs$AIC_Val == lowestAIC & AICs$index_Val == i] <- i
+#   }
+#   
+#   ##For some reason complete.cases must be used as the second for loop creates a vector contain NA's this is then confuses the computer
+#   ##if the NA's are not removed.
+#   ret <- ret[complete.cases(ret)]
+#   return(paste("Model ", ret, " has the lowest AIC"))
+# }
+
+#########
+
+my.graph <- function(){
+  NormDat <- my.NormDat()
+  GGP <- list()
+    for (i in 1:length(NormDat[[1]])) {
+      GGP[[i]] <- ggplot(NormDat[[1]][[i]], aes(Time, Intensity, colour = Intensity)) +
+        geom_point(alpha = 0.2, show.legend = F) +
+        xlab("Time (min)") +
+        ylab("Intensity (A.U)") +
+        theme_classic() +
+        ylim(0,ceiling(NormDat[[2]] * 1.2))
+    }
+  do.call(grid.arrange, GGP)
+  GGP <- NULL
+}
+
+
 my.Average <- function(){
   
   normDat <- my.NormDat()
   normDat[[2]] <- NULL
   
-  
   return()
+}
+
+my.SMA <- function(k) {      # k is the span, x is the data vector
+  x = my.NormDat() ##Loads data frames
+  x <- x[[1]] ##Removes unneeded element
+  erg = list()
+  for (n in 1:length(x)) {
+    erg[[n]] <- data.frame("Time" = x[[n]]$Time, "Intensity" = smooth.ma(x[[n]]$Intensity, k))
+  }
+  
+  return(erg)
 }
