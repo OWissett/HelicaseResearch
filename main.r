@@ -65,6 +65,17 @@ my.NormDat <- function(){
   return(returnVal)
 }
 
+my.SMA <- function(k) {      # k is the span
+  x = my.NormDat() ##Loads data frames
+  x <- x[[1]] ##Removes unneeded element
+  erg = list()
+  for (n in 1:length(x)) {
+    erg[[n]] <- data.frame("Time" = x[[n]]$Time, 
+                           "Intensity" = smooth.ma(x[[n]]$Intensity, k))
+  }
+  return(erg)
+}
+
 #########
 # my.model <- function(){
 #   models <- list()
@@ -110,7 +121,8 @@ my.graph <- function(){
   NormDat <- my.NormDat()
   GGP <- list()
     for (i in 1:length(NormDat[[1]])) {
-      GGP[[i]] <- ggplot(NormDat[[1]][[i]], aes(Time, Intensity, colour = Intensity)) +
+      GGP[[i]] <- ggplot(NormDat[[1]][[i]], 
+                         aes(Time, Intensity, colour = Intensity)) +
         geom_point(alpha = 0.2, show.legend = F) +
         xlab("Time (min)") +
         ylab("Intensity (A.U)") +
@@ -121,6 +133,26 @@ my.graph <- function(){
   GGP <- NULL
 }
 
+my.SMAgraph <- function(k){
+  NormDat <- my.NormDat()
+  SMANormDat <- my.SMA(k)
+  ldf <- list()
+  GGP <- list()
+  for (i in 1:length(SMANormDat)) {
+    ldf[[i]] <- data.frame("Time" = NormDat[[1]][[i]]$Time, 
+                           "Intensity" = NormDat[[1]][[i]]$Intensity,
+                           "SMA" = SMANormDat[[i]]$Intensity)
+    GGP[[i]] <- ggplot(SMANormDat[[i]], 
+                       aes(Time, Intensity, colour = "red")) +
+      geom_point(alpha = 0.2, show.legend = F) +
+      xlab("Time (min)") +
+      ylab("SMA Intensity (A.U)") +
+      theme_classic()# +
+      ylim(0,ceiling(NormDat[[2]] * 1.2))
+  }
+  do.call(grid.arrange, GGP)
+  GGP <- NULL
+}
 
 my.Average <- function(){
   
@@ -128,15 +160,4 @@ my.Average <- function(){
   normDat[[2]] <- NULL
   
   return()
-}
-
-my.SMA <- function(k) {      # k is the span, x is the data vector
-  x = my.NormDat() ##Loads data frames
-  x <- x[[1]] ##Removes unneeded element
-  erg = list()
-  for (n in 1:length(x)) {
-    erg[[n]] <- data.frame("Time" = x[[n]]$Time, "Intensity" = smooth.ma(x[[n]]$Intensity, k))
-  }
-  
-  return(erg)
 }
