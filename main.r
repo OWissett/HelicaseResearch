@@ -4,6 +4,7 @@
 library("ggplot2")
 library("gridExtra")
 library("itsmr")
+library("pracma")
 #################
 ##  Load Data  ##
 #################
@@ -65,9 +66,9 @@ my.NormDat <- function(){
   return(returnVal)
 }
 
-my.SMA <- function(k) {      # k is the span
-  x = my.NormDat() ##Loads data frames
-  x <- x[[1]] ##Removes unneeded element
+my.SMA <- function(x, k) {      # k is the span, x is the list of vectors
+  # x = my.NormDat() ##Loads data frames
+  # x <- x[[1]] ##Removes unneeded element
   erg = list()
   for (n in 1:length(x)) {
     erg[[n]] <- data.frame("Time" = x[[n]]$Time, 
@@ -117,6 +118,7 @@ my.SMA <- function(k) {      # k is the span
 
 #########
 
+##Creates are graph of the data sets 
 my.graph <- function(){
   NormDat <- my.NormDat()
   GGP <- list()
@@ -133,25 +135,33 @@ my.graph <- function(){
   GGP <- NULL
 }
 
+##Creates a graph with the SMA line drawn too. K = SMA span. 175-200 works best
 my.SMAgraph <- function(k){
   NormDat <- my.NormDat()
   SMANormDat <- my.SMA(k)
   ldf <- list()
   GGP <- list()
   for (i in 1:length(SMANormDat)) {
-    ldf[[i]] <- data.frame("Time" = NormDat[[1]][[i]]$Time, 
-                           "Intensity" = NormDat[[1]][[i]]$Intensity,
-                           "SMA" = SMANormDat[[i]]$Intensity)
-    GGP[[i]] <- ggplot(SMANormDat[[i]], 
-                       aes(Time, Intensity, colour = "red")) +
-      geom_point(alpha = 0.2, show.legend = F) +
+    ##Creates a list of ggplot plots
+    GGP[[i]] <- ggplot(NormDat[[1]][[i]], aes(Time, Intensity)) +
+      geom_point(alpha = 0.2, show.legend = T, color = "grey") +
+      geom_line(data = SMANormDat[[i]], color = "red") +
       xlab("Time (min)") +
-      ylab("SMA Intensity (A.U)") +
-      theme_classic()# +
+      ylab("Intensity (A.U)") +
+      theme_classic() +
       ylim(0,ceiling(NormDat[[2]] * 1.2))
   }
+  ##Arranges all plots within GGP on a single grob
   do.call(grid.arrange, GGP)
   GGP <- NULL
+}
+
+my.gradient <- function(f) {
+  grads <- list()
+  for (i in 1:length(f)) {
+    grads[[i]] <- gradient(f[[i]]$Intensity)
+  }
+  return(grads)
 }
 
 my.Average <- function(){
