@@ -66,9 +66,9 @@ my.NormDat <- function(){
   return(returnVal)
 }
 
-my.SMA <- function(x, k) {      # k is the span, x is the list of vectors
-  # x = my.NormDat() ##Loads data frames
-  # x <- x[[1]] ##Removes unneeded element
+my.SMA <- function(k) {      # k is the span
+  x = my.NormDat() ##Loads data frames
+  x <- x[[1]] ##Removes unneeded element
   erg = list()
   for (n in 1:length(x)) {
     erg[[n]] <- data.frame("Time" = x[[n]]$Time, 
