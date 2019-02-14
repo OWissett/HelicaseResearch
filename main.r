@@ -22,6 +22,17 @@ files <- list.files(pattern = "\\.csv$")
 in_dat <- lapply(files, read.csv)
 dat <- lapply(in_dat, function(x) x[complete.cases(x),])
 
+##Fixes Column Names to be standarised
+dat <- lapply(dat, function(x) x <- x[1:2])
+dat <- lapply(dat, function(x) setNames(x, c('Time', 'Intensity')))
+
+##Ensures values within the DFs are consired numeric
+dat <- lapply(dat, function(x){
+  lapply(x, function(x1) { ##LOL a double lapply (not sure if this is the best way of doing it...)
+    if (is.factor(x1)) as.numeric(as.character(x1)) else x1
+  })
+})
+
 ##Variables are set to NULL once they are no longer required.
 in_dat <- NULL
 files <- NULL
@@ -40,14 +51,15 @@ my.NormDat <- function(){
   ndat <- list()
   
   ##Creates a list of vectors containing the intensities
-  ndat <- lapply(dat, '[', c('Intensity'))
+  ndat <- lapply(dat, '[', c('Intensity', ''))
+  ndat <- lapply(ndat, function(x){x <- x[[1]]})
   
   ##Creates a list of minimum alues from each vector in ndat
   yMins <- lapply(ndat, min)
   
   ##Loop creates new data frame with normalised intensities against time
   for (i in 1:length(yMins)) {
-    normaliseInt[[i]] <- lapply(ndat[[i]], function(x) x/yMins[[i]])
+    normaliseInt[[i]] <- sapply(ndat[[i]], function(x) x/yMins[[i]])
     listDF[[i]] <- data.frame("Time" = dat[[i]]['Time'], 
                               "Intensity" = normaliseInt[[i]])
   }
@@ -66,7 +78,7 @@ my.NormDat <- function(){
   return(returnVal)
 }
 
-my.SMA <- function(k) {      # k is the span
+my.SMA <- function(k) {      # k is the spand
   x = my.NormDat() ##Loads data frames
   x <- x[[1]] ##Removes unneeded element
   erg = list()
