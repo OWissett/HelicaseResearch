@@ -19,6 +19,8 @@ R Scripts and relating files. The aim of the project is to be able to process da
 
 # Tasks
 
+
+
 1. Load Csv - DONE
 2. Normilase data by dividing the min y - DONE
 
