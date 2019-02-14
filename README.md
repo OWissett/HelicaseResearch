@@ -1,6 +1,12 @@
 # Research
 R Scripts and relating files
 
+#How to Use Scripts:
+1. Before you intiallise the scripts ensure the following:
+- Correct folder containing the datasets has been set to working directory e.g. use the command: setwd("LOCATION OF SETS")
+- Ensure all required libraries are installed: ggplot, dplyr, pracma, gridExtra.
+2. 
+
 # Tasks
 
 1. Load Csv - DONE
