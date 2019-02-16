@@ -33,5 +33,7 @@ R Scripts and relating files. The aim of the project is to be able to process da
 
 
 >TODO< 
-- Create a modle of the dat using function given by remi, start model at Xo (t=5).
-  USe the model to compare gradients, use the SMA.
+>- Create a modle of the dat using function given by remi, start model at Xo (t=5).
+>  Use the model to compare gradients, use the SMA.
+>- Create a graph title function: use folder name as title e.g.
+>  TacXPD-Y165E-35-Deg2-4.

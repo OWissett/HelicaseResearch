@@ -20,18 +20,17 @@ files <- list.files(pattern = "\\.csv$")
 
 ##Loads CSV files
 in_dat <- lapply(files, read.csv)
+
+##Makes data all numeric
+in_dat <- lapply(in_dat, function(x){ for (i in 1:length(x)){
+  x[[i]] <- as.numeric(x[[i]])
+}})
+
 dat <- lapply(in_dat, function(x) x[complete.cases(x),])
 
 ##Fixes Column Names to be standarised
-dat <- lapply(dat, function(x) x <- x[1:2])
+#dat <- lapply(dat, function(x) x <- x[1:2])
 dat <- lapply(dat, function(x) setNames(x, c('Time', 'Intensity')))
-
-##Ensures values within the DFs are consired numeric
-dat <- lapply(dat, function(x){
-  lapply(x, function(x1) { ##LOL a double lapply (not sure if this is the best way of doing it...)
-    if (is.factor(x1)) as.numeric(as.character(x1)) else x1
-  })
-})
 
 ##Variables are set to NULL once they are no longer required.
 in_dat <- NULL
@@ -43,8 +42,7 @@ files <- NULL
 #############
 
 my.NormDat <- function(){
-  
-  ##Defines local vairables
+
   returnVal <- c()
   listDF <- list()
   normaliseInt <- list()
@@ -52,7 +50,7 @@ my.NormDat <- function(){
   
   ##Creates a list of vectors containing the intensities
   ndat <- lapply(dat, '[', c('Intensity', ''))
-  ndat <- lapply(ndat, function(x){x <- x[[1]]})
+  ndat <- lapply(ndat, function(x){x <- as.numeric(x[[1]])})
   
   ##Creates a list of minimum alues from each vector in ndat
   yMins <- lapply(ndat, min)
@@ -60,7 +58,7 @@ my.NormDat <- function(){
   ##Loop creates new data frame with normalised intensities against time
   for (i in 1:length(yMins)) {
     normaliseInt[[i]] <- sapply(ndat[[i]], function(x) x/yMins[[i]])
-    listDF[[i]] <- data.frame("Time" = dat[[i]]['Time'], 
+    listDF[[i]] <- data.frame("Time" = as.numeric(dat[[i]]['Time']), 
                               "Intensity" = normaliseInt[[i]])
   }
   
@@ -90,14 +88,16 @@ my.SMA <- function(k) {      # k is the spand
 }
 
 #########
-# my.model <- function(){
-#   models <- list()
-#   normDat <- my.NormDat()
-#   for (i in 1:length(normDat[[1]])) {
-#     models[[i]] <- glm(Intensity~Time, data = normDat[[1]][[i]])
-#   }
-#   return(models)
-# }
+
+##Returns models for each dataset
+my.model <- function(k){
+  models <- list()
+  f <- my.SMA(k)
+  for (i in 1:length(f)) {
+    models[[i]] <- glm(Intensity~Time, data = f[[i]])
+  }
+  return(models)
+}
 
 # my.LowestAICModel <- function(model){
 #   AIC_Val <- c()
@@ -151,7 +151,6 @@ my.graph <- function(){
 my.SMAgraph <- function(k){
   NormDat <- my.NormDat()
   SMANormDat <- my.SMA(k)
-  ldf <- list()
   GGP <- list()
   for (i in 1:length(SMANormDat)) {
     ##Creates a list of ggplot plots
@@ -168,6 +167,7 @@ my.SMAgraph <- function(k){
   GGP <- NULL
 }
 
+##Returns gradient at all points for given list of DFs, f.
 my.gradient <- function(f) {
   grads <- list()
   for (i in 1:length(f)) {
@@ -176,10 +176,9 @@ my.gradient <- function(f) {
   return(grads)
 }
 
+##Returns a dataframe of the Average between all OK dataframes. *Incomplete*
 my.Average <- function(){
   
-  normDat <- my.NormDat()
-  normDat[[2]] <- NULL
   
   return()
 }
