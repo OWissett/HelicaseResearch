@@ -11,7 +11,6 @@ library("pracma")
 
 ##List of CSV data frames
 #folder <- readline("Where is the data from the spectrophotometer?  ")
-in_dat <- list() 
 dat <- list()
 
 ##List of files in current directory (ensure directory is correct)
@@ -19,18 +18,13 @@ dat <- list()
 files <- list.files(pattern = "\\.csv$")
 
 ##Loads CSV files
-in_dat <- lapply(files, read.csv)
-
-##Makes data all numeric
-in_dat <- lapply(in_dat, function(x){ for (i in 1:length(x)){
-  x[[i]] <- as.numeric(x[[i]])
-}})
-
-dat <- lapply(in_dat, function(x) x[complete.cases(x),])
+dat <- lapply(files, read.csv)
 
 ##Fixes Column Names to be standarised
-#dat <- lapply(dat, function(x) x <- x[1:2])
+# dat <- lapply(dat, function(x) x[[3]] <- NULL)
 dat <- lapply(dat, function(x) setNames(x, c('Time', 'Intensity')))
+
+dat <- lapply(dat, function(x) x[complete.cases(x),])
 
 ##Variables are set to NULL once they are no longer required.
 in_dat <- NULL
@@ -49,8 +43,8 @@ my.NormDat <- function(){
   ndat <- list()
   
   ##Creates a list of vectors containing the intensities
-  ndat <- lapply(dat, '[', c('Intensity', ''))
-  ndat <- lapply(ndat, function(x){x <- as.numeric(x[[1]])})
+  ndat <- lapply(dat, '[', c('Intensity'))
+  # ndat <- lapply(ndat, function(x){x <- as.numeric(x[[1]])})
   
   ##Creates a list of minimum alues from each vector in ndat
   yMins <- lapply(ndat, min)
@@ -58,7 +52,7 @@ my.NormDat <- function(){
   ##Loop creates new data frame with normalised intensities against time
   for (i in 1:length(yMins)) {
     normaliseInt[[i]] <- sapply(ndat[[i]], function(x) x/yMins[[i]])
-    listDF[[i]] <- data.frame("Time" = as.numeric(dat[[i]]['Time']), 
+    listDF[[i]] <- data.frame("Time" = dat[[i]]['Time'], 
                               "Intensity" = normaliseInt[[i]])
   }
   
@@ -139,7 +133,7 @@ my.graph <- function(){
                          aes(Time, Intensity, colour = Intensity)) +
         geom_point(alpha = 0.2, show.legend = F) +
         xlab("Time (min)") +
-        ylab("Intensity (A.U)") +
+        ylab("Normalised Intensity") +
         theme_classic() +
         ylim(0,ceiling(NormDat[[2]] * 1.2))
     }
@@ -149,25 +143,34 @@ my.graph <- function(){
 
 ##Creates a graph with the SMA line drawn too. K = SMA span. 175-200 works best
 my.SMAgraph <- function(k){
-  NormDat <- my.NormDat()
-  SMANormDat <- my.SMA(k)
-  GGP <- list()
-  for (i in 1:length(SMANormDat)) {
-    ##Creates a list of ggplot plots
-    GGP[[i]] <- ggplot(NormDat[[1]][[i]], aes(Time, Intensity)) +
-      geom_point(alpha = 0.2, show.legend = T, color = "grey") +
-      geom_line(data = SMANormDat[[i]], color = "red") +
-      xlab("Time (min)") +
-      ylab("Intensity (A.U)") +
-      theme_classic() +
-      ylim(0,ceiling(NormDat[[2]] * 1.2))
+  if (is.numeric(k)) {
+    NormDat <- my.NormDat()
+    SMANormDat <- my.SMA(k)
+    GGP <- list()
+    for (i in 1:length(SMANormDat)) {
+      ##Creates a list of ggplot plots
+      GGP[[i]] <- ggplot(NormDat[[1]][[i]], aes(Time, Intensity)) +
+        geom_point(alpha = 0.2, aes(color = "myGrey")) +
+        geom_line(data = SMANormDat[[i]], aes(color = "myRed")) +
+        xlab("Time (min)") +
+        ylab("Intensity") +
+        theme_classic() +
+        ylim(0,ceiling(NormDat[[2]] * 1.2)) +
+        scale_color_manual(name = "",
+                           values = c(myGrey = "grey", myRed = "red"),
+                           labels = c("Normalised \nIntensity", 
+                                      paste("SMA (Span = ", k, ")")))
+    }
+  }else if (is.list(k)) {
+    
+    
   }
   ##Arranges all plots within GGP on a single grob
   do.call(grid.arrange, GGP)
   GGP <- NULL
 }
 
-##Returns gradient at all points for given list of DFs, f.
+##Returns gradients for given list of DFs, f.
 my.gradient <- function(f) {
   grads <- list()
   for (i in 1:length(f)) {
