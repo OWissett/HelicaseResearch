@@ -81,8 +81,6 @@ my.SMA <- function(k) {      # k is the spand
   return(erg)
 }
 
-#########
-
 ##Returns models for each dataset
 my.model <- function(k){
   models <- list()
@@ -92,6 +90,8 @@ my.model <- function(k){
   }
   return(models)
 }
+
+##########
 
 # my.LowestAICModel <- function(model){
 #   AIC_Val <- c()
@@ -143,7 +143,31 @@ my.graph <- function(){
 
 ##Creates a graph with the SMA line drawn too. K = SMA span. 175-200 works best
 my.SMAgraph <- function(k){
-  if (is.numeric(k)) {
+  if (is.vector(k) && is.numeric(k)) {
+    nGGP <- list()
+    for(a in 1:length(k)){
+      GGP <- list()
+      NormDat <- my.NormDat()
+      SMANormDat <- my.SMA(k[[a]])
+      for (i in 1:length(SMANormDat)) {
+        ##Creates a list of ggplot plots
+        GGP[[i]] <- ggplot(NormDat[[1]][[i]], aes(Time, Intensity)) +
+          geom_point(alpha = 0.2, aes(color = "myGrey")) +
+          geom_line(data = SMANormDat[[i]], aes(color = "myRed")) +
+          xlab("Time (min)") +
+          ylab("Intensity") +
+          theme_classic() +
+          ylim(0,ceiling(NormDat[[2]] * 1.2)) +
+          scale_color_manual(name = paste("Repeat: ", i),
+                             values = c(myGrey = "grey", myRed = "red"),
+                             labels = c("Normalised \nIntensity", 
+                                        paste("SMA (Span = ", k[[a]], ")")))
+      }
+      nGGP[[a]] <- GGP
+    }
+    nGGP <- unlist(nGGP)
+    do.call(grid.arrange, nGGP)
+  }else if (is.numeric(k)) {
     NormDat <- my.NormDat()
     SMANormDat <- my.SMA(k)
     GGP <- list()
@@ -161,13 +185,15 @@ my.SMAgraph <- function(k){
                            labels = c("Normalised \nIntensity", 
                                       paste("SMA (Span = ", k, ")")))
     }
-  }else if (is.list(k)) {
     
+    ##Arranges all plots within GGP on a single grob
+    do.call(grid.arrange, GGP)
+    GGP <- NULL
     
+  } else {
+    print("Please ensure that K is either numeric or a numerical vector")
+    break
   }
-  ##Arranges all plots within GGP on a single grob
-  do.call(grid.arrange, GGP)
-  GGP <- NULL
 }
 
 ##Returns gradients for given list of DFs, f.
