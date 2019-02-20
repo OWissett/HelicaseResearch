@@ -31,9 +31,9 @@ in_dat <- NULL
 files <- NULL
 
 
-#############
-##FUNCTIONS##
-#############
+#################
+##  FUNCTIONS  ##
+#################
 
 my.NormDat <- function(){
 
@@ -143,15 +143,16 @@ my.graph <- function(){
 
 ##Creates a graph with the SMA line drawn too. K = SMA span. 175-200 works best
 my.SMAgraph <- function(k){
+  GGP <- list()
+  index <- 1
   if (is.vector(k) && is.numeric(k)) {
-    nGGP <- list()
-    for(a in 1:length(k)){
-      GGP <- list()
-      NormDat <- my.NormDat()
+    NormDat <- my.NormDat()
+    for (a in 1:length(k)) {
       SMANormDat <- my.SMA(k[[a]])
       for (i in 1:length(SMANormDat)) {
         ##Creates a list of ggplot plots
-        GGP[[i]] <- ggplot(NormDat[[1]][[i]], aes(Time, Intensity)) +
+        GGP[[index]] <- ggplot(NormDat[[1]][[i]], 
+                                   aes(Time, Intensity)) +
           geom_point(alpha = 0.2, aes(color = "myGrey")) +
           geom_line(data = SMANormDat[[i]], aes(color = "myRed")) +
           xlab("Time (min)") +
@@ -162,15 +163,14 @@ my.SMAgraph <- function(k){
                              values = c(myGrey = "grey", myRed = "red"),
                              labels = c("Normalised \nIntensity", 
                                         paste("SMA (Span = ", k[[a]], ")")))
+        index <- index + 1
       }
-      nGGP[[a]] <- GGP
     }
-    nGGP <- unlist(nGGP)
-    do.call(grid.arrange, nGGP)
+    # do.call(grid.arrange, GGP)
+    grid.arrange(grobs = GGP)
   }else if (is.numeric(k)) {
     NormDat <- my.NormDat()
     SMANormDat <- my.SMA(k)
-    GGP <- list()
     for (i in 1:length(SMANormDat)) {
       ##Creates a list of ggplot plots
       GGP[[i]] <- ggplot(NormDat[[1]][[i]], aes(Time, Intensity)) +
@@ -206,8 +206,11 @@ my.gradient <- function(f) {
 }
 
 ##Returns a dataframe of the Average between all OK dataframes. *Incomplete*
-my.Average <- function(){
-  
-  
-  return()
+my.Average <- function(f, k){
+  f <- lapply(f, function(x){unlist(x$Intensity)})
+  fsum <- c(0)
+  for (i in 1:length(f)){
+    fsum = fsum + f[[i]]
+  }
+  return(fsum/length(f))
 }
