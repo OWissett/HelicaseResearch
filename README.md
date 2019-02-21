@@ -31,6 +31,8 @@ R Scripts and relating files. The aim of the project is to be able to process da
 5. Fit average Graphs if data is good
 6. Plot average graphs
 
+7. Make a log graph
+
 
 >TODO< 
 >- Create a modle of the dat using function given by remi, start model at Xo (t=5).

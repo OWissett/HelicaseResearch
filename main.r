@@ -141,6 +141,22 @@ my.graph <- function(){
   GGP <- NULL
 }
 
+# ##Plot a graph of the gradients of a data set.
+# my.difgraph <- function(k){
+#   NormDat <- data.frame("Time" = my.NormDat()[[1]]my.gradient(k)
+#   GGP <- list()
+#   for (i in 1:length(NormDat)) {
+#     GGP[[i]] <- ggplot(NormDat[[i]], 
+#                        aes(Time, Intensity, colour = Intensity)) +
+#       geom_point(alpha = 0.2, show.legend = F) +
+#       xlab("Time (min)") +
+#       ylab("Normalised Intensity") +
+#       theme_classic()
+#   }
+#   do.call(grid.arrange, GGP)
+#   GGP <- NULL
+# }
+
 ##Creates a graph with the SMA line drawn too. K = SMA span. 175-200 works best
 my.SMAgraph <- function(k){
   GGP <- list()
@@ -206,11 +222,15 @@ my.gradient <- function(f) {
 }
 
 ##Returns a dataframe of the Average between all OK dataframes. *Incomplete*
-my.Average <- function(f, k){
+my.Average <- function(f, k = NULL){
   f <- lapply(f, function(x){unlist(x$Intensity)})
   fsum <- c(0)
   for (i in 1:length(f)){
-    fsum = fsum + f[[i]]
+    if (k == NULL){
+      fsum = fsum + f[[i]]
+    }else if(k[[i]]){
+      fsum = fsum + f[[i]]
+    }
   }
   return(fsum/length(f))
 }
