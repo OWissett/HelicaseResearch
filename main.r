@@ -81,15 +81,6 @@ my.SMA <- function(k) {      # k is the spand
   return(erg)
 }
 
-##Returns models for each dataset
-my.model <- function(k){
-  models <- list()
-  f <- my.SMA(k)
-  for (i in 1:length(f)) {
-    models[[i]] <- glm(Intensity~Time, data = f[[i]])
-  }
-  return(models)
-}
 
 ##########
 
@@ -123,6 +114,31 @@ my.model <- function(k){
 # }
 
 #########
+
+##Returns nls for each dataset
+my.nls <- function(Yo){
+  
+  list_nls <- list()
+  df <- my.NormDat()
+  df <- df[[1]]
+  
+  for (i in 1:length(df)) {
+    
+    ##Set y
+    y <- as.vector(df[[i]]$Intensity)
+    x <- as.vector(df[[i]]$Time)
+    
+    ##a = Plateau-Yo 
+    ##K is the rate constant
+    ##Yo is the y value at the experimental time t=0
+    
+    ##Exponential Model for the graph
+    m1 <- nls(y~a*(1-exp(K*x)) + Yo)
+    
+    list_nls[[i]] <- cor(y, predict(m1))
+  }
+  return(list_nls)
+}
 
 ##Creates are graph of the data sets 
 my.graph <- function(){
