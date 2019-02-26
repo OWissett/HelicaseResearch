@@ -5,6 +5,7 @@ library("ggplot2")
 library("gridExtra")
 library("itsmr")
 library("pracma")
+library("git2r")
 #################
 ##  Load Data  ##
 #################
@@ -116,7 +117,7 @@ my.SMA <- function(k) {      # k is the spand
 #########
 
 ##Returns nls for each dataset
-my.nls <- function(Yo){
+my.nls <- function(){
   
   list_nls <- list()
   df <- my.NormDat()
@@ -128,14 +129,26 @@ my.nls <- function(Yo){
     y <- as.vector(df[[i]]$Intensity)
     x <- as.vector(df[[i]]$Time)
     
-    ##a = Plateau-Yo 
+    ##a = Plateau-Y0
     ##K is the rate constant
-    ##Yo is the y value at the experimental time t=0
+    ##Y0 is the y value at the experimental time t=0
+    
+    ##Find the parameters for the equation
+    SS <- getInitial(y ~ SSlogis(x, Y0, a, K), 
+                     data = data.frame(y=y, x=x))
+    
+    ##Assign Starting values
+    Y0_start <- SS["Y0"]
+    a_start <- SS["a"]
+    K_start <- SS["K"]
+    
     
     ##Exponential Model for the graph
-    m1 <- nls(y~a*(1-exp(K*x)) + Yo)
+    nls_fit <- nls(y~a*(1-exp(K*x)) + Y0, start = list(Y0 = Y0_start,
+                                                       a = a_start
+                                                       K = K_start))
     
-    list_nls[[i]] <- cor(y, predict(m1))
+    list_nls[[i]] <- cor(y, predict(nls_fit))
   }
   return(list_nls)
 }
@@ -157,21 +170,22 @@ my.graph <- function(){
   GGP <- NULL
 }
 
-# ##Plot a graph of the gradients of a data set.
-# my.difgraph <- function(k){
-#   NormDat <- data.frame("Time" = my.NormDat()[[1]]my.gradient(k)
-#   GGP <- list()
-#   for (i in 1:length(NormDat)) {
-#     GGP[[i]] <- ggplot(NormDat[[i]], 
-#                        aes(Time, Intensity, colour = Intensity)) +
-#       geom_point(alpha = 0.2, show.legend = F) +
-#       xlab("Time (min)") +
-#       ylab("Normalised Intensity") +
-#       theme_classic()
-#   }
-#   do.call(grid.arrange, GGP)
-#   GGP <- NULL
-# }
+##Plot a graph of the gradients of a data set. *INCOMPLETE*
+my.difgraph <- function(k){
+  NormGrad <- data.frame("Time" = my.NormDat()[[1]]$Time,
+                        "Gradient" = my.gradient(k))
+  GGP <- list()
+  for (i in 1:length(NormDat)) {
+    GGP[[i]] <- ggplot(NormDat[[i]],
+                       aes(Time, Intensity, colour = Intensity)) +
+      geom_point(alpha = 0.2, show.legend = F) +
+      xlab("Time (min)") +
+      ylab("Normalised Intensity") +
+      theme_classic()
+  }
+  do.call(grid.arrange, GGP)
+  GGP <- NULL
+}
 
 ##Creates a graph with the SMA line drawn too. K = SMA span. 175-200 works best
 my.SMAgraph <- function(k){
@@ -242,7 +256,7 @@ my.Average <- function(f, k = NULL){
   f <- lapply(f, function(x){unlist(x$Intensity)})
   fsum <- c(0)
   for (i in 1:length(f)){
-    if (k == NULL){
+    if (is.null(k)){
       fsum = fsum + f[[i]]
     }else if(k[[i]]){
       fsum = fsum + f[[i]]
@@ -250,3 +264,4 @@ my.Average <- function(f, k = NULL){
   }
   return(fsum/length(f))
 }
+
