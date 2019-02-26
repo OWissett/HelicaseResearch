@@ -1,14 +1,19 @@
-#############
-##Libraries##
-#############
-library("ggplot2")
-library("gridExtra")
-library("itsmr")
-library("pracma")
-library("git2r")
-#################
-##  Load Data  ##
-#################
+########################
+##      Libraries     ##
+########################
+libs <- list("ggplot2", 
+          "gridExtra",
+          "itsmr",
+          "pracma",
+          "git2r",
+          "car",
+          "minpack.lm")
+
+for(i in 1:length(libs)){library(libs[[i]])}
+
+########################
+##      Load Data     ##
+########################
 
 ##List of CSV data frames
 #folder <- readline("Where is the data from the spectrophotometer?  ")
@@ -32,10 +37,11 @@ in_dat <- NULL
 files <- NULL
 
 
-#################
-##  FUNCTIONS  ##
-#################
+########################
+##  DATA  PROCESSING  ##
+########################
 
+##Normalises data by dividing by lowest intensity
 my.NormDat <- function(){
 
   returnVal <- c()
@@ -71,6 +77,7 @@ my.NormDat <- function(){
   return(returnVal)
 }
 
+##Creates a smooth moving average for the data set
 my.SMA <- function(k) {      # k is the spand
   x = my.NormDat() ##Loads data frames
   x <- x[[1]] ##Removes unneeded element
@@ -82,40 +89,6 @@ my.SMA <- function(k) {      # k is the spand
   return(erg)
 }
 
-
-##########
-
-# my.LowestAICModel <- function(model){
-#   AIC_Val <- c()
-#   index_Val <- c()
-#   
-#   AICs <- data.frame(AIC_Val, index_Val) ##df of AIC and index of model
-#   
-#   ##Creates a data frame of AIC values with their respective index value
-#   for (i in 1:length(model)) {
-#     AICs <- rbind(AICs, data.frame(AIC_Val = AIC(model[[i]]), index_Val = i))
-#   }
-#   
-#   ##Finds lowest AIC value
-#   lowestAIC <- min(AICs$AIC_Val)
-#   
-#   ##Defines variable ret
-#   ret <- NULL
-#   
-#   ##Compares the AIC_Val to the lowest AIC,
-#   ##if the same then ret = index value of the model
-#   for (i in 1:length(model)) {
-#     ret[AICs$AIC_Val == lowestAIC & AICs$index_Val == i] <- i
-#   }
-#   
-#   ##For some reason complete.cases must be used as the second for loop creates a vector contain NA's this is then confuses the computer
-#   ##if the NA's are not removed.
-#   ret <- ret[complete.cases(ret)]
-#   return(paste("Model ", ret, " has the lowest AIC"))
-# }
-
-#########
-
 ##Returns nls for each dataset
 my.nls <- function(){
   
@@ -123,35 +96,71 @@ my.nls <- function(){
   df <- my.NormDat()
   df <- df[[1]]
   
-  for (i in 1:length(df)) {
+  for (i in 1:length(df)) { 
     
-    ##Set y
     y <- as.vector(df[[i]]$Intensity)
     x <- as.vector(df[[i]]$Time)
+    dat2 <- data.frame(x = x, y = y)
     
-    ##a = Plateau-Y0
+    eq1 <- function(x, a, K, Y0){Y0 + (a-Y0)*(1-exp(-K*x))}
+    
+    eq2 <- function(x, a, PercFast, Kfast, Kslow, Y0){
+      SpanFast <- (a-Y0)*PercFast
+      SpanSlow <- (a-Y0)*(100-PercFast)
+      return(Y0 + SpanFast*(1-exp(-Kfast*x)) + SpanSlow*(1-exp(-Kslow*x)))
+    }
+    
+    ##a = Plateau
     ##K is the rate constant
     ##Y0 is the y value at the experimental time t=0
     
-    ##Find the parameters for the equation
-    SS <- getInitial(y ~ SSlogis(x, Y0, a, K), 
-                     data = data.frame(y=y, x=x))
+    ###############
+    ##Exponential##
+    ###############
     
-    ##Assign Starting values
-    Y0_start <- SS["Y0"]
-    a_start <- SS["a"]
-    K_start <- SS["K"]
-    
+    ##Linearised Fit to find starting values.
+    lin_fit1 <- nls(log(y) ~ log(eq1(x,a,K,Y0)), 
+                   dat2,
+                   start = c(a = max(dat2$y)/2,
+                             K = 0.1,
+                             Y0 = 1))
     
     ##Exponential Model for the graph
-    nls_fit <- nls(y~a*(1-exp(K*x)) + Y0, start = list(Y0 = Y0_start,
-                                                       a = a_start
-                                                       K = K_start))
+    nls_fit1 <- nls(y ~ eq1(x, a, K, Y0), 
+                   dat2, 
+                   start = c(a = coef(lin_fit1)[[1]],
+                             K = coef(lin_fit1)[[2]],
+                             Y0 = coef(lin_fit1)[[3]]))
     
-    list_nls[[i]] <- cor(y, predict(nls_fit))
+    #################
+    ##BiExponential##
+    #################
+    
+    lin_fit2 <- nlsLM(log(y) ~ log(eq2(x,a,PercFast,Kfast,Kslow,Y0)), 
+                   dat2,
+                   start = c(a = max(dat2$y)/1.3,
+                             PercFast = 99,
+                             Kfast = 0.5,
+                             Kslow = 0.1,
+                             Y0 = 1))
+    
+    ##Biexponential Model for the graph
+    nls_fit2 <- nls(y ~ eq2(x,a,PercFast,Kfast,Kslow,Y0), 
+                    dat2, 
+                    start = c(a = coef(lin_fit2)[[1]],
+                              PercFast = coef(lin_fit2)[[2]],
+                              Kfast = coef(lin_fit2)[[3]],
+                              Kslow = coef(lin_fit2)[[4]],
+                              Y0 = coef(lin_fit2)[[5]]))
+    
+    list_nls[[i]] <- c(nls_fit1, nls_fit2)
   }
   return(list_nls)
 }
+
+########################
+## GRAPHING FUNCTIONS ##
+########################
 
 ##Creates are graph of the data sets 
 my.graph <- function(){
@@ -242,6 +251,54 @@ my.SMAgraph <- function(k){
   }
 }
 
+##Creates a graph with the NLS line drawn.
+my.NLSgraph <- function(){
+  
+  df <- my.NormDat()[[1]]
+  GGP <- list()
+  for (i in 1:length(df)) {
+    
+    ##Creates local dataframe to be used in calculating the NLS
+    y <- as.vector(df[[i]]$Intensity)
+    x <- as.vector(df[[i]]$Time)
+    dat2 <- data.frame(x = x, y = y)
+    eq1 <- function(x, a, K, Y0){Y0 + (a-Y0)*(1-exp(-K*x))}
+    
+    ##a = Plateau
+    ##K is the rate constant
+    ##Y0 is the y value at the experimental time t=0
+    
+    ##Linearised Fit to find starting values.
+    lin_fit <- nls(log(y) ~ log(eq1(x,a,K,Y0)), 
+                   dat2,
+                   start = c(a = max(dat2$y)/2,
+                             K = 0.1,
+                             Y0 = 1))
+    
+    ##Creates the graphic plot
+    GGP[[i]] <- ggplot(df[[i]],
+                       aes(Time, Intensity)) +
+      geom_point(alpha = 0.2, show.legend = F) +
+      geom_smooth(method="nls",
+                  formula = y~Y0 + (a-Y0)*(1-exp(-K*x)),
+                  method.args = list(start = c(a = coef(lin_fit)[[1]],
+                                               K = coef(lin_fit)[[2]],
+                                               Y0 = coef(lin_fit)[[3]])),
+                  se=F,
+                  colour = "red",
+                  aes(linetype = 2)) +
+      xlab("Time (min)") +
+      ylab("Normalised Intensity") +
+      theme_classic()
+  }
+  do.call(grid.arrange, GGP)
+  GGP <- NULL
+}
+
+########################
+##  STATS  FUNCTIONS  ##
+########################
+
 ##Returns gradients for given list of DFs, f.
 my.gradient <- function(f) {
   grads <- list()
@@ -252,16 +309,62 @@ my.gradient <- function(f) {
 }
 
 ##Returns a dataframe of the Average between all OK dataframes. *Incomplete*
-my.Average <- function(f, k = NULL){
+my.Average <- function(f, test_vector = NULL){
   f <- lapply(f, function(x){unlist(x$Intensity)})
   fsum <- c(0)
-  for (i in 1:length(f)){
-    if (is.null(k)){
+  for (i in 1:length(test_vector)){
+    if (is.null(test_vector)){
       fsum = fsum + f[[i]]
-    }else if(k[[i]]){
+    }else if(k[[i]] == T){
       fsum = fsum + f[[i]]
     }
   }
   return(fsum/length(f))
 }
+
+##Returns the model with the lowest AIC value from a list of models
+my.LowestAICModel <- function(model){
+  AIC_Val <- c()
+  index_Val <- c()
+  
+  AICs <- data.frame(AIC_Val, index_Val) ##df of AIC and index of model
+  
+  ##Creates a data frame of AIC values with their respective index value
+  for (i in 1:length(model)) {
+    AICs <- rbind(AICs, data.frame(AIC_Val = AIC(model[[i]]), index_Val = i))
+  }
+  
+  ##Finds lowest AIC value
+  lowestAIC <- min(AICs$AIC_Val)
+  
+  ##Defines variable ret
+  ret <- NULL
+  
+  ##Compares the AIC_Val to the lowest AIC,
+  ##if the same then ret = index value of the model
+  for (i in 1:length(model)) {
+    ret[AICs$AIC_Val == lowestAIC & AICs$index_Val == i] <- i
+  }
+  
+  ##For some reason complete.cases must be used as the second for loop creates a vector contain NA's this is then confuses the computer
+  ##if the NA's are not removed.
+  ret <- ret[complete.cases(ret)]
+  return(paste("Model ", ret, " has the lowest AIC"))
+}
+
+##Test data sets rates and data span
+my.StatsTest <- function(){
+  list_nls <- my.nls()
+  
+  for(i in 1:length(list_nls)){
+    co <- coef(summary(list_nls[[i]]))
+    
+    
+  }
+  
+  
+}
+
+
+
 
