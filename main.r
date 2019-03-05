@@ -87,6 +87,36 @@ my.NormDat <- function(){
   return(returnVal)
 }
 
+##Normalises data by dividing by max intensity resulting in data being [0, 1]
+my.NormDat1 <- function(){
+  
+  returnVal <- c()
+  listDF <- list()
+  normaliseInt <- list()
+  ndat <- list()
+  
+  ##Creates a list of vectors containing the intensities
+  ndat <- lapply(dat, '[', c('Intensity'))
+  # ndat <- lapply(ndat, function(x){x <- as.numeric(x[[1]])})
+  
+  ##Creates a list of max values from each vector in ndat
+  yMax <- lapply(ndat, max)
+  
+  ##Loop creates new data frame with normalised intensities against time
+  for (i in 1:length(yMax)) {
+    normaliseInt[[i]] <- sapply(ndat[[i]], function(x) x/yMax[[i]])
+    listDF[[i]] <- data.frame("Time" = dat[[i]]['Time'], 
+                              "Intensity" = normaliseInt[[i]])
+  }
+  
+  ##Nulls ndat once no longer needed (this may be redundant...)
+  ##May possibly decrease memory used...
+  ndat <- NULL
+  
+  return(listDF)
+}
+
+
 ##Creates a smooth moving average for the data set
 my.SMA <- function(k) {      # k is the spand
   x = my.NormDat() ##Loads data frames
@@ -122,6 +152,8 @@ my.nls <- function(){
     
     eq3 <- function(x, A, B, k.1, k.2, Y0){
       Y0 + A*(1 - exp(-k.1*x)) + B*(1 - exp(-k.2*x))}
+     ## Derived by convoluting eq2 then analysing resulting function (assuming that Y0 ~ 0)
+    eq4 <- function(x, k.1, k.2){1 + (k.2/(k.2-k.1))*exp(-k.2*x) + (k.1/(k.2-k.1))*exp(-k.1*x)}
     
     ##a = Plateau
     ##K is the rate constant
