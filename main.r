@@ -1,7 +1,17 @@
 ########################
 ##      Libraries     ##
 ########################
-libs <- list("ggplot2", 
+
+##Nice little function that I found that will install packages if they are not 
+##installed.
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+
+libs <- c("ggplot2", 
           "gridExtra",
           "itsmr",
           "pracma",
@@ -9,7 +19,7 @@ libs <- list("ggplot2",
           "car",
           "minpack.lm")
 
-for(i in 1:length(libs)){library(libs[[i]])}
+ipak(libs)
 
 ########################
 ##      Load Data     ##
@@ -102,13 +112,16 @@ my.nls <- function(){
     x <- as.vector(df[[i]]$Time)
     dat2 <- data.frame(x = x, y = y)
     
-    eq1 <- function(x, a, K, Y0){Y0 + (a-Y0)*(1-exp(-K*x))}
+    eq1 <- function(x, a, K, Y0){Y0 + (a - Y0)*(1 - exp(-K*x))}
     
-    eq2 <- function(x, a, PercFast, Kfast, Kslow, Y0){
-      SpanFast <- (a-Y0)*PercFast
-      SpanSlow <- (a-Y0)*(100-PercFast)
-      return(Y0 + SpanFast*(1-exp(-Kfast*x)) + SpanSlow*(1-exp(-Kslow*x)))
+    eq2 <- function(x, a, PropFast, Kfast, Kslow, Y0){
+      SpanFast <- (a - Y0)*PropFast
+      SpanSlow <- (a - Y0)*(1 - PropFast)
+      return(Y0 + SpanFast*(1 - exp(-Kfast*x)) + SpanSlow*(1 - exp(-Kslow*x)))
     }
+    
+    eq3 <- function(x, A, B, k.1, k.2, Y0){
+      Y0 + A*(1 - exp(-k.1*x)) + B*(1 - exp(-k.2*x))}
     
     ##a = Plateau
     ##K is the rate constant
@@ -136,24 +149,54 @@ my.nls <- function(){
     ##BiExponential##
     #################
     
-    lin_fit2 <- nlsLM(log(y) ~ log(eq2(x,a,PercFast,Kfast,Kslow,Y0)), 
-                   dat2,
-                   start = c(a = max(dat2$y)/1.3,
-                             PercFast = 99,
-                             Kfast = 0.5,
-                             Kslow = 0.1,
-                             Y0 = 1))
+    # a0 <- max(dat$y) / 2
+    # 
+    # lin_fit2 <- lm(log(y - a0) ~ x, data = dat2)
+    # start <- list(b = exp(coef(lin_fit2)[1]), 
+    #               b = coef(lin_fit2)[2],
+    #               )
     
-    ##Biexponential Model for the graph
-    nls_fit2 <- nls(y ~ eq2(x,a,PercFast,Kfast,Kslow,Y0), 
-                    dat2, 
-                    start = c(a = coef(lin_fit2)[[1]],
-                              PercFast = coef(lin_fit2)[[2]],
-                              Kfast = coef(lin_fit2)[[3]],
-                              Kslow = coef(lin_fit2)[[4]],
-                              Y0 = coef(lin_fit2)[[5]]))
+    # lin_fit2 <- nlsLM(log(y) ~ log(eq2(x,a,PropFast,Kfast,Kslow,Y0)),
+    #                dat2,
+    #                start = c(a = coef(nls_fit1)[[1]],
+    #                          PropFast = 0.5,
+    #                          Kfast = coef(nls_fit1)[[2]],
+    #                          Kslow = coef(nls_fit1)[[2]],
+    #                          Y0 = coef(nls_fit1)[[3]]),
+    #                lower = c(0,0,0,0,0),
+    #                upper = c(max(dat2$y), 1, Inf, Inf, Inf))
+    # 
+    # 
+    # ##Biexponential Model for the graph
+    # nls_fit2 <- nlsLM(y ~ eq2(x,a,PropFast,Kfast,Kslow,Y0),
+    #                 dat2,
+    #                 start = c(a = coef(lin_fit2)[[1]],
+    #                           PropFast = coef(lin_fit2)[[2]],
+    #                           Kfast = coef(lin_fit2)[[3]],
+    #                           Kslow = coef(lin_fit2)[[4]],
+    #                           Y0 = coef(lin_fit2)[[5]]))
     
-    list_nls[[i]] <- c(nls_fit1, nls_fit2)
+    lin_fit3 <- nlsLM(log(y) ~ log(eq2(x, A, B, k.1, k.2, Y0)),
+                      dat2,
+                      start = c(A = max(dat2$y)/4,
+                                B = max(dat2$y)/4,
+                                k.1 = coef(nls_fit1)[[2]],
+                                k.2 = coef(nls_fit1)[[2]],
+                                Y0 = coef(nls_fit1)[[3]]),
+                      lower = c(-Inf,-Inf,0,0,0),
+                      upper = c(max(dat2$y), 1, Inf, Inf, Inf))
+    
+    
+    # ##Biexponential Model for the graph
+    # nls_fit3 <- nlsLM(y ~ eq3(x, A, B, k.1, k.2, Y0),
+    #                   dat2,
+    #                   start = c(a = coef(lin_fit3)[[1]],
+    #                             PropFast = coef(lin_fit3)[[2]],
+    #                             Kfast = coef(lin_fit3)[[3]],
+    #                             Kslow = coef(lin_fit3)[[4]],
+    #                             Y0 = coef(lin_fit3)[[5]]))
+
+    list_nls[[i]] <- list("fit1" = nls_fit1, "fit3" = lin_fit3)
   }
   return(list_nls)
 }
