@@ -87,6 +87,35 @@ my.NormDat <- function(){
   return(returnVal)
 }
 
+my.NormDat01 <- function(){
+  
+  returnVal <- c()
+  listDF <- list()
+  normaliseInt <- list()
+  ndat <- list()
+  
+  ##Creates a list of vectors containing the intensities
+  ndat <- lapply(dat, '[', c('Intensity'))
+  # ndat <- lapply(ndat, function(x){x <- as.numeric(x[[1]])})
+  
+  ##Creates a list of max values from each vector in ndat
+  yMaxes <- lapply(ndat, max)
+  
+  ##Loop creates new data frame with normalised intensities against time
+  for (i in 1:length(yMaxes)) {
+    normaliseInt[[i]] <- sapply(ndat[[i]], function(x) x/yMaxes[[i]])
+    listDF[[i]] <- data.frame("Time" = dat[[i]]['Time'], 
+                              "Intensity" = normaliseInt[[i]])
+  }
+  
+  ##Nulls ndat once no longer needed (this may be redundant...)
+  ##May possibly decrease memory used...
+  ndat <- NULL
+  
+  return(listDF)
+}
+
+
 ##Creates a smooth moving average for the data set
 my.SMA <- function(k) {      # k is the spand
   x = my.NormDat() ##Loads data frames
@@ -103,8 +132,7 @@ my.SMA <- function(k) {      # k is the spand
 my.nls <- function(){
   
   list_nls <- list()
-  df <- my.NormDat()
-  df <- df[[1]]
+  df <- my.NormDat01()
   
   for (i in 1:length(df)) { 
     
@@ -114,18 +142,35 @@ my.nls <- function(){
     
     eq1 <- function(x, a, K, Y0){Y0 + (a - Y0)*(1 - exp(-K*x))}
     
+    ##Biexponential formula for association
     eq2 <- function(x, a, PropFast, Kfast, Kslow, Y0){
       SpanFast <- (a - Y0)*PropFast
       SpanSlow <- (a - Y0)*(1 - PropFast)
       return(Y0 + SpanFast*(1 - exp(-Kfast*x)) + SpanSlow*(1 - exp(-Kslow*x)))
     }
     
+    ##eq2 was too complex for nls to find good coefficients. Eq3 was created to 
+    ##simplify eq2, however, it was still to complex, as there were far too many
+    ##variables. Eq4 is derived by convolution and analysis of eq3.
+    
+    ##Linear Sum of two random exponentials distributions
     eq3 <- function(x, A, B, k.1, k.2, Y0){
       Y0 + A*(1 - exp(-k.1*x)) + B*(1 - exp(-k.2*x))}
+    
     
     ##a = Plateau
     ##K is the rate constant
     ##Y0 is the y value at the experimental time t=0
+    
+    ##Conveluted summation of two different random exponential distributions
+    eq4 <- function(x, l.1, l.2, a){a + (l.2/(l.2 - 1))*exp(-l.2*x) -
+        (l.1/(l.2 - l.1))*exp(-l.1*x)}
+    
+    ##a = plateau, since the data has been normalised to be [0,1] 
+    ##l.1 and l.2 = functions of rate 
+    
+    ##Gompertz Function
+    eq5 <- function(x, a, b, c){a*exp(-b*exp(-c*x))}
     
     ###############
     ##Exponential##
@@ -134,9 +179,9 @@ my.nls <- function(){
     ##Linearised Fit to find starting values.
     lin_fit1 <- nls(log(y) ~ log(eq1(x,a,K,Y0)), 
                    dat2,
-                   start = c(a = max(dat2$y)/2,
-                             K = 0.1,
-                             Y0 = 1))
+                   start = c(a = 1,
+                             K = 0.5,
+                             Y0 = 0))
     
     ##Exponential Model for the graph
     nls_fit1 <- nls(y ~ eq1(x, a, K, Y0), 
@@ -149,54 +194,37 @@ my.nls <- function(){
     ##BiExponential##
     #################
     
-    # a0 <- max(dat$y) / 2
-    # 
-    # lin_fit2 <- lm(log(y - a0) ~ x, data = dat2)
-    # start <- list(b = exp(coef(lin_fit2)[1]), 
-    #               b = coef(lin_fit2)[2],
-    #               )
+    lin_fit4 <- nlsLM(log(y) ~ log(eq4(x, l.1, l.2, a)),
+                    dat2,
+                    start = c(a = 1,
+                              l.1 = 0,
+                              l.2 = 0.5))
     
-    # lin_fit2 <- nlsLM(log(y) ~ log(eq2(x,a,PropFast,Kfast,Kslow,Y0)),
-    #                dat2,
-    #                start = c(a = coef(nls_fit1)[[1]],
-    #                          PropFast = 0.5,
-    #                          Kfast = coef(nls_fit1)[[2]],
-    #                          Kslow = coef(nls_fit1)[[2]],
-    #                          Y0 = coef(nls_fit1)[[3]]),
-    #                lower = c(0,0,0,0,0),
-    #                upper = c(max(dat2$y), 1, Inf, Inf, Inf))
-    # 
-    # 
-    # ##Biexponential Model for the graph
-    # nls_fit2 <- nlsLM(y ~ eq2(x,a,PropFast,Kfast,Kslow,Y0),
-    #                 dat2,
-    #                 start = c(a = coef(lin_fit2)[[1]],
-    #                           PropFast = coef(lin_fit2)[[2]],
-    #                           Kfast = coef(lin_fit2)[[3]],
-    #                           Kslow = coef(lin_fit2)[[4]],
-    #                           Y0 = coef(lin_fit2)[[5]]))
+    nls_fit4 <- nls(y ~ eq4(x, l.1, l.2, a),
+                    dat2,
+                    start = c(a = coef(lin_fit4)[[1]],
+                              l.1 = coef(lin_fit4)[[2]],
+                              l.2 = coef(lin_fit4)[[3]]))
     
-    lin_fit3 <- nlsLM(log(y) ~ log(eq2(x, A, B, k.1, k.2, Y0)),
+    #################
+    ##  Gompertz   ##
+    #################
+    
+    lin_fit5 <- nlsLM(log(y)~log(eq5(x, a, b, c)),
                       dat2,
-                      start = c(A = max(dat2$y)/4,
-                                B = max(dat2$y)/4,
-                                k.1 = coef(nls_fit1)[[2]],
-                                k.2 = coef(nls_fit1)[[2]],
-                                Y0 = coef(nls_fit1)[[3]]),
-                      lower = c(-Inf,-Inf,0,0,0),
-                      upper = c(max(dat2$y), 1, Inf, Inf, Inf))
+                      start = c(a = 1,
+                                b = 1,
+                                c = 1))
+    
+    nls_fit5 <- nls(y~eq5(x, a, b, c),
+                      dat2,
+                      start = c(a = coef(lin_fit5)[[1]],
+                                b = coef(lin_fit5)[[2]],
+                                c = coef(lin_fit5)[[3]]))
     
     
-    # ##Biexponential Model for the graph
-    # nls_fit3 <- nlsLM(y ~ eq3(x, A, B, k.1, k.2, Y0),
-    #                   dat2,
-    #                   start = c(a = coef(lin_fit3)[[1]],
-    #                             PropFast = coef(lin_fit3)[[2]],
-    #                             Kfast = coef(lin_fit3)[[3]],
-    #                             Kslow = coef(lin_fit3)[[4]],
-    #                             Y0 = coef(lin_fit3)[[5]]))
-
-    list_nls[[i]] <- list("fit1" = nls_fit1, "fit3" = lin_fit3)
+    list_nls[[i]] <- list("Exp Fit" = nls_fit1, "Bi-Exp Fit" = nls_fit4,
+                          "Gompertz Fit" = nls_fit5)
   }
   return(list_nls)
 }
@@ -297,7 +325,7 @@ my.SMAgraph <- function(k){
 ##Creates a graph with the NLS line drawn.
 my.NLSgraph <- function(){
   
-  df <- my.NormDat()[[1]]
+  df <- my.NormDat01()
   GGP <- list()
   for (i in 1:length(df)) {
     
@@ -305,7 +333,10 @@ my.NLSgraph <- function(){
     y <- as.vector(df[[i]]$Intensity)
     x <- as.vector(df[[i]]$Time)
     dat2 <- data.frame(x = x, y = y)
-    eq1 <- function(x, a, K, Y0){Y0 + (a-Y0)*(1-exp(-K*x))}
+    eq1 <- function(x, a, K, Y0){Y0 + (a - Y0)*(1 - exp(-K*x))}
+    
+    eq4 <- function(x, l.1, l.2, a){a + (l.2/(l.2 - 1))*exp(-l.2*x) -
+        (l.1/(l.2 - l.1))*exp(-l.1*x)}
     
     ##a = Plateau
     ##K is the rate constant
@@ -314,9 +345,16 @@ my.NLSgraph <- function(){
     ##Linearised Fit to find starting values.
     lin_fit <- nls(log(y) ~ log(eq1(x,a,K,Y0)), 
                    dat2,
-                   start = c(a = max(dat2$y)/2,
-                             K = 0.1,
-                             Y0 = 1))
+                   start = c(a = 1,
+                             K = 0.5,
+                             Y0 = 0))
+    
+    
+    lin_fit4 <- nlsLM(log(y) ~ log(eq4(x, l.1, l.2, a)),
+                      dat2,
+                      start = c(a = 1,
+                                l.1 = 0,
+                                l.2 = 0.5))
     
     ##Creates the graphic plot
     GGP[[i]] <- ggplot(df[[i]],
@@ -327,9 +365,15 @@ my.NLSgraph <- function(){
                   method.args = list(start = c(a = coef(lin_fit)[[1]],
                                                K = coef(lin_fit)[[2]],
                                                Y0 = coef(lin_fit)[[3]])),
-                  se=F,
-                  colour = "red",
-                  aes(linetype = 2)) +
+                  se = F,
+                  colour = "red",) +
+      geom_smooth(method = "nls",
+                  formula = y ~ eq4(x, l.1, l.2, a),
+                  method.args = list(start = c(a = coef(lin_fit4)[[1]],
+                                               l.1 = coef(lin_fit4)[[2]],
+                                               l.2 = coef(lin_fit4)[[3]])),
+                  se = F,
+                  colour = "purple") +
       xlab("Time (min)") +
       ylab("Normalised Intensity") +
       theme_classic()
@@ -354,11 +398,11 @@ my.gradient <- function(f) {
 ##Returns a dataframe of the Average between all OK dataframes. *Incomplete*
 my.Average <- function(f, test_vector = NULL){
   f <- lapply(f, function(x){unlist(x$Intensity)})
-  fsum <- c(0)
-  for (i in 1:length(test_vector)){
-    if (is.null(test_vector)){
+  fsum <- c()
+  for (i in 1:length(test_vector)) {
+    if (is.null(test_vector)) {
       fsum = fsum + f[[i]]
-    }else if(k[[i]] == T){
+    }else if (test_vector[[i]] == T) {
       fsum = fsum + f[[i]]
     }
   }
@@ -392,20 +436,19 @@ my.LowestAICModel <- function(model){
   ##For some reason complete.cases must be used as the second for loop creates a vector contain NA's this is then confuses the computer
   ##if the NA's are not removed.
   ret <- ret[complete.cases(ret)]
-  return(paste("Model ", ret, " has the lowest AIC"))
+  return(ret)
 }
 
-##Test data sets rates and data span
-my.StatsTest <- function(){
+##Tests what type of model fits each set best
+my.ModelTypeTest <- function(){
   list_nls <- my.nls()
-  
-  for(i in 1:length(list_nls)){
-    co <- coef(summary(list_nls[[i]]))
-    
-    
+  bestModels <- list()
+  modelNames <- c("Exponential", "Biexponential", "Gompertz")
+  for (i in 1:length(list_nls)) {
+    m <- my.LowestAICModel(list_nls[[i]])
+    bestModels[[i]] <- modelNames[[m]]
   }
-  
-  
+  return(bestModels)
 }
 
 
