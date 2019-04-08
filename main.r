@@ -40,7 +40,7 @@ dat <- lapply(files, read.csv)
 # dat <- lapply(dat, function(x) x[[3]] <- NULL)
 dat <- lapply(dat, function(x) setNames(x, c('Time', 'Intensity')))
 
-dat <- lapply(dat, function(x) x[complete.cases(x),])
+dat <- lapply(dat, function(x) x[complete.cases(x), 1:2])
 
 ##Variables are set to NULL once they are no longer required.
 in_dat <- NULL
