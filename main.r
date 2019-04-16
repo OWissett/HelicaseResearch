@@ -29,23 +29,28 @@ ipak(libs)
 #folder <- readline("Where is the data from the spectrophotometer?  ")
 dat <- list()
 
-##List of files in current directory (ensure directory is correct)
-#fils <- list.files(folder, full.names = TRUE)
-files <- list.files(pattern = "\\.csv$")
 
-##Loads CSV files
-dat <- lapply(files, read.csv)
+my.load <- function(){
+  ##List of files in current directory (ensure directory is correct)
+  #fils <- list.files(folder, full.names = TRUE)
+  files <- list.files(pattern = "\\.csv$")
+  
+  ##Loads CSV files
+  dat <<- lapply(files, read.csv)
+  
+  ##Fixes Column Names to be standarised
+  # dat <- lapply(dat, function(x) x[[3]] <- NULL)
+  dat <<- lapply(dat, function(x) setNames(x, c('Time', 'Intensity')))
+  
+  dat <<- lapply(dat, function(x) x[complete.cases(x), 1:2])
+  
+  ##Variables are set to NULL once they are no longer required.
+  in_dat <- NULL
+  files <- NULL
+  return()
+}
 
-##Fixes Column Names to be standarised
-# dat <- lapply(dat, function(x) x[[3]] <- NULL)
-dat <- lapply(dat, function(x) setNames(x, c('Time', 'Intensity')))
-
-dat <- lapply(dat, function(x) x[complete.cases(x), 1:2])
-
-##Variables are set to NULL once they are no longer required.
-in_dat <- NULL
-files <- NULL
-
+my.load()
 
 ########################
 ##  DATA  PROCESSING  ##
@@ -87,7 +92,9 @@ my.NormDat <- function(){
   return(returnVal)
 }
 
-my.NormDat01 <- function(){
+
+##Normalises data by dividing by max intensity
+my.NormDat01 <- function(Trim = 0){
   
   returnVal <- c()
   listDF <- list()
@@ -100,18 +107,24 @@ my.NormDat01 <- function(){
   
   ##Creates a list of max values from each vector in ndat
   yMaxes <- lapply(ndat, max)
+
   
-  ##Loop creates new data frame with normalised intensities against time
-  for (i in 1:length(yMaxes)) {
-    normaliseInt[[i]] <- sapply(ndat[[i]], function(x) x/yMaxes[[i]])
-    listDF[[i]] <- data.frame("Time" = dat[[i]]['Time'], 
-                              "Intensity" = normaliseInt[[i]])
+  if(Trim > 0){
+    ##Loop creates new data frame with normalised intensities against time
+    for (i in 1:length(yMaxes)) {
+      normaliseInt[[i]] <- sapply(ndat[[i]], function(x) x/yMaxes[[i]])
+      listDF[[i]] <- data.frame("Time" = dat[[i]][,'Time'], 
+                                "Intensity" = normaliseInt[[i]][Trim:length(dat[[i]])])
+    }
+  }else{
+    ##Loop creates new data frame with normalised intensities against time
+    for (i in 1:length(yMaxes)) {
+      normaliseInt[[i]] <- sapply(ndat[[i]], function(x) x/yMaxes[[i]])
+      listDF[[i]] <- data.frame("Time" = dat[[i]]['Time'], 
+                                "Intensity" = normaliseInt[[i]])
+    }
   }
-  
-  ##Nulls ndat once no longer needed (this may be redundant...)
-  ##May possibly decrease memory used...
-  ndat <- NULL
-  
+
   return(listDF)
 }
 
@@ -129,11 +142,11 @@ my.SMA <- function(k) {      # k is the spand
 }
 
 ##Returns nls for each dataset
-my.nls <- function(){
+my.nls <- function(Trim = 0){
   
   list_nls <- list()
-  df <- my.NormDat01()
-  
+  df <- my.NormDat01(Trim)
+
   for (i in 1:length(df)) { 
     
     y <- as.vector(df[[i]]$Intensity)
@@ -396,8 +409,8 @@ my.gradient <- function(f) {
 }
 
 ##Returns a dataframe of the Average between all OK dataframes. *Incomplete*
-my.Average <- function(f, test_vector = NULL){
-  f <- lapply(f, function(x){unlist(x$Intensity)})
+my.Average <- function(test_vector = NULL){
+  f <- lapply(my.NormDat01, function(x){unlist(x$Intensity)})
   fsum <- c()
   for (i in 1:length(test_vector)) {
     if (is.null(test_vector)) {
@@ -451,6 +464,8 @@ my.ModelTypeTest <- function(){
   return(bestModels)
 }
 
-
+my.SigTest <- function(){
+  
+}
 
 
